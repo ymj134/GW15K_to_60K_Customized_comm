@@ -1,0 +1,12 @@
+`define Q0_LN3
+`define Q0_LN3_TX_PMA_WIDTH 20
+`define Q0_LN3_RX_PMA_WIDTH 20
+`define Q0_LN3_8B10B_ENCODE
+`define Q0_LN3_8B10B_DECODE
+`define Q0_LN3_TX_GEARBOX 4
+`define Q0_LN3_RX_GEARBOX 4
+`define Q0_LN3_WORD_ALIGN
+`define Q0_LN3_CHANNEL_BONDING_MASTER_SEL 0
+`define Q0_LN3_TX_IF_MST_SEL 0
+`define MODULE_NAME Customized_PHY_Top
+`define GW5AT60

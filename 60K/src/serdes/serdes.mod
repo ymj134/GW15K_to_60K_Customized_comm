@@ -1,0 +1,23 @@
+-type SERDES
+-path E:/ymj_project/serdes/GW15K_to_60K_Customized_comm/fpga_project_1/src/serdes/
+-file_type vlg
+-file_name serdes
+-mod_name SerDes_Top
+-series GW5AT
+-device GW5AT-60
+-device_version B
+-package PBGA484A
+-part_number GW5AT-LV60PG484AC2/I1
+
+
+-global_reset disable
+-protocol_module_name0 Customized_PHY_Top
+-Customized_PHY_Topprotocol_module_type customized
+-Customized_PHY_TopQ0Lane3 true
+-Customized_PHY_TopClock_Correction None
+-Customized_PHY_TopWord_Alignment true
+-Customized_PHY_TopRX_Channel_Bonding None
+-Customized_PHY_TopEnableDRP false
+-Customized_PHY_TopDRPPorts false
+-Customized_PHY_TopTX_Encoding_Mode 8B10B
+-Customized_PHY_TopRX_Decoding_Mode 8B10B
