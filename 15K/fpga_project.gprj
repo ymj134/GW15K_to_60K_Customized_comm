@@ -18,7 +18,8 @@
         <File path="src/15k_rx.rao" type="file.gao" enable="0"/>
         <File path="src/Customized.rao" type="file.gao" enable="0"/>
         <File path="src/Customized1.rao" type="file.gao" enable="0"/>
-        <File path="src/customized_lb.rao" type="file.gao" enable="1"/>
+        <File path="src/comm.rao" type="file.gao" enable="1"/>
+        <File path="src/customized_lb.rao" type="file.gao" enable="0"/>
         <File path="src/fpga_project.rao" type="file.gao" enable="0"/>
         <File path="src/framing.rao" type="file.gao" enable="0"/>
         <File path="src/ila1.rao" type="file.gao" enable="0"/>

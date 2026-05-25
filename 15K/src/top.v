@@ -1,20 +1,22 @@
-module top
+module top #(
+    parameter [15:0] LOCAL_BOARD_ID = 16'h0015
+)
 (
     input  wire clk,     // 50 MHz
     input  wire rst_n,
     output wire led
 );
 
-localparam [31:0] TOP_VERSION = 32'h8B10_0002;
+localparam [31:0] TOP_VERSION = 32'h8B10_0005;
 localparam [7:0]  K28_5_CODE  = 8'hBC;
 localparam integer PRBS_WIDTH = 64;
 
-// 上电后先连续发 K28.5，帮助 RX Word Alignment 建立
-localparam integer TRAIN_K_WORDS      = 1024;
+// 上电后先连续发 K28.5，帮助对端 RX Word Alignment 建立
+localparam integer TRAIN_K_WORDS     = 1024;
 
 // 训练完成后，每隔 K_INSERT_INTERVAL 个 word 插入 1 个 K28.5 word
 // 实际效果：1 个 K word + 1023 个 PRBS data word
-localparam integer K_INSERT_INTERVAL  = 1024;
+localparam integer K_INSERT_INTERVAL = 1024;
 
 // -----------------------------------------------------------------------------
 // Customized PHY Q0 Lane0 interface wires
@@ -51,11 +53,11 @@ wire        cphy_pcs_tx_rst_i;
 assign cphy_rx_clk_i = cphy_rx_pcs_clk;
 assign cphy_tx_clk_i = cphy_tx_pcs_clk;
 
-assign cphy_pma_rstn_i    = rst_n;
-assign cphy_pcs_rx_rst_i  = ~rst_n;
-assign cphy_pcs_tx_rst_i  = ~rst_n;
+assign cphy_pma_rstn_i   = rst_n;
+assign cphy_pcs_rx_rst_i = ~rst_n;
+assign cphy_pcs_tx_rst_i = ~rst_n;
 
-// RX FIFO read request.
+// 双向测试：两端都读 RX FIFO。
 // rden 只要求 PHY 基础状态正常，真正数据是否使用由 rx_valid + 8B10B 解包结果决定。
 assign cphy_rx_fifo_rden_i = rst_n
                             & cphy_ready
@@ -65,13 +67,14 @@ assign cphy_rx_fifo_rden_i = rst_n
 
 // -----------------------------------------------------------------------------
 // Instantiate generated SerDes Customized PHY
-// IP setting:
+//
+// Required IP settings:
 //   Line Rate              = 6.25G
 //   TX/RX Internal Width   = 20
 //   TX/RX External Ratio   = 1:4
 //   TX/RX Encoding         = 8B10B
 //   RX Word Alignment      = Enable, K28.5
-//   RX Bit Polarity Invert = Enable
+//   RX Bit Polarity Invert = according to each board's real SFP RX polarity
 // -----------------------------------------------------------------------------
 SerDes_Top u_SerDes_Top
 (
@@ -150,10 +153,10 @@ wire tx_periodic_k_word;
 wire tx_send_k_word;
 wire tx_send_data_word;
 
-assign tx_in_training    = (tx_train_cnt < TRAIN_K_WORDS);
+assign tx_in_training     = (tx_train_cnt < TRAIN_K_WORDS);
 assign tx_periodic_k_word = (tx_interval_cnt == 16'd0);
-assign tx_send_k_word    = tx_in_training | tx_periodic_k_word;
-assign tx_send_data_word = ~tx_send_k_word;
+assign tx_send_k_word     = tx_in_training | tx_periodic_k_word;
+assign tx_send_data_word  = ~tx_send_k_word;
 
 assign cphy_tx_fifo_wren_i = tx_link_rstn & ~cphy_tx_fifo_afull;
 
@@ -232,47 +235,47 @@ wire [7:0]  rx_disp_err;
 wire [7:0]  rx_dec_err;
 
 assign rx_code = {
-    cphy_rx_data[77:70],  // Code7
-    cphy_rx_data[67:60],  // Code6
-    cphy_rx_data[57:50],  // Code5
-    cphy_rx_data[47:40],  // Code4
-    cphy_rx_data[37:30],  // Code3
-    cphy_rx_data[27:20],  // Code2
-    cphy_rx_data[17:10],  // Code1
-    cphy_rx_data[7:0]     // Code0
+    cphy_rx_data[77:70],
+    cphy_rx_data[67:60],
+    cphy_rx_data[57:50],
+    cphy_rx_data[47:40],
+    cphy_rx_data[37:30],
+    cphy_rx_data[27:20],
+    cphy_rx_data[17:10],
+    cphy_rx_data[7:0]
 };
 
 assign rx_k = {
-    cphy_rx_data[78],     // K7
-    cphy_rx_data[68],     // K6
-    cphy_rx_data[58],     // K5
-    cphy_rx_data[48],     // K4
-    cphy_rx_data[38],     // K3
-    cphy_rx_data[28],     // K2
-    cphy_rx_data[18],     // K1
-    cphy_rx_data[8]       // K0
+    cphy_rx_data[78],
+    cphy_rx_data[68],
+    cphy_rx_data[58],
+    cphy_rx_data[48],
+    cphy_rx_data[38],
+    cphy_rx_data[28],
+    cphy_rx_data[18],
+    cphy_rx_data[8]
 };
 
 assign rx_disp_err = {
-    cphy_rx_data[79],     // Disparity Error7
-    cphy_rx_data[69],     // Disparity Error6
-    cphy_rx_data[59],     // Disparity Error5
-    cphy_rx_data[49],     // Disparity Error4
-    cphy_rx_data[39],     // Disparity Error3
-    cphy_rx_data[29],     // Disparity Error2
-    cphy_rx_data[19],     // Disparity Error1
-    cphy_rx_data[9]       // Disparity Error0
+    cphy_rx_data[79],
+    cphy_rx_data[69],
+    cphy_rx_data[59],
+    cphy_rx_data[49],
+    cphy_rx_data[39],
+    cphy_rx_data[29],
+    cphy_rx_data[19],
+    cphy_rx_data[9]
 };
 
 assign rx_dec_err = {
-    cphy_rx_data[87],     // Decoder Error7
-    cphy_rx_data[86],     // Decoder Error6
-    cphy_rx_data[85],     // Decoder Error5
-    cphy_rx_data[84],     // Decoder Error4
-    cphy_rx_data[83],     // Decoder Error3
-    cphy_rx_data[82],     // Decoder Error2
-    cphy_rx_data[81],     // Decoder Error1
-    cphy_rx_data[80]      // Decoder Error0
+    cphy_rx_data[87],
+    cphy_rx_data[86],
+    cphy_rx_data[85],
+    cphy_rx_data[84],
+    cphy_rx_data[83],
+    cphy_rx_data[82],
+    cphy_rx_data[81],
+    cphy_rx_data[80]
 };
 
 wire rx_8b10b_no_err;
@@ -299,13 +302,11 @@ assign rx_prbs_en   = rx_link_rstn & rx_is_data_word;
 prbs7_single_channel #(
     .WIDTH(PRBS_WIDTH)
 ) u_prbs7_single_channel (
-    // TX PRBS generator
     .tx_clk_i  (cphy_tx_pcs_clk),
     .tx_rstn_i (tx_link_rstn),
     .tx_en_i   (tx_prbs_en),
     .tx_data_o (prbs_tx_data),
 
-    // RX PRBS checker
     .rx_clk_i  (cphy_rx_pcs_clk),
     .rx_rstn_i (rx_link_rstn),
     .rx_en_i   (rx_prbs_en),
@@ -315,6 +316,8 @@ prbs7_single_channel #(
 
 // -----------------------------------------------------------------------------
 // Pass condition
+// 当前板子的 prbs_lock 表示：本板 RX 已经正确锁定对端发来的 PRBS payload。
+// 两块板子都 prbs_lock=1，即双向跨板通信通过。
 // -----------------------------------------------------------------------------
 wire link_pass_now;
 
@@ -326,9 +329,6 @@ assign link_pass_now = rx_link_rstn
                      & cphy_word_align_link
                      & rx_8b10b_no_err
                      & prbs_lock;
-
-// LED 用实时 prbs_lock；如果想肉眼保持通过状态，可以改成 prbs_lock_seen。
-assign led = prbs_lock;
 
 // -----------------------------------------------------------------------------
 // Debug counters / sticky flags
@@ -483,6 +483,10 @@ always @(posedge cphy_rx_pcs_clk or negedge rst_n) begin
     end
 end
 
+// LED 使用 sticky pass，方便肉眼观察。
+// 如果想看实时状态，可以改成 assign led = prbs_lock;
+assign led = link_pass_seen;
+
 // -----------------------------------------------------------------------------
 // 50MHz heartbeat
 // -----------------------------------------------------------------------------
@@ -496,166 +500,170 @@ always @(posedge clk or negedge rst_n) begin
 end
 
 // -----------------------------------------------------------------------------
-// GAO/ILA probe wires. Search prefix: ila8b10b_
+// GAO/ILA probe wires. Search prefix: ilabidir_
 // -----------------------------------------------------------------------------
-wire [31:0] ila8b10b_top_version;
-wire        ila8b10b_clk_heartbeat;
+wire [31:0] ilabidir_top_version;
+wire [15:0] ilabidir_local_board_id;
+wire        ilabidir_clk_heartbeat;
 
-wire        ila8b10b_pll_lock;
-wire        ila8b10b_ready;
-wire        ila8b10b_signal_detect;
-wire        ila8b10b_rx_cdr_lock;
-wire        ila8b10b_k_lock;
-wire        ila8b10b_word_align_link;
+wire        ilabidir_pll_lock;
+wire        ilabidir_ready;
+wire        ilabidir_signal_detect;
+wire        ilabidir_rx_cdr_lock;
+wire        ilabidir_k_lock;
+wire        ilabidir_word_align_link;
 
-wire        ila8b10b_tx_link_rstn;
-wire        ila8b10b_rx_link_rstn;
+wire        ilabidir_tx_link_rstn;
+wire        ilabidir_rx_link_rstn;
 
-wire        ila8b10b_tx_fifo_wren;
-wire [79:0] ila8b10b_tx_data;
-wire [63:0] ila8b10b_tx_code;
-wire [7:0]  ila8b10b_tx_k;
-wire        ila8b10b_tx_send_k_word;
-wire        ila8b10b_tx_send_data_word;
-wire [15:0] ila8b10b_tx_train_cnt;
-wire [15:0] ila8b10b_tx_interval_cnt;
-wire [4:0]  ila8b10b_tx_fifo_wrusewd;
-wire        ila8b10b_tx_fifo_afull;
-wire        ila8b10b_tx_fifo_full;
+wire        ilabidir_tx_fifo_wren;
+wire [79:0] ilabidir_tx_data;
+wire [63:0] ilabidir_tx_code;
+wire [7:0]  ilabidir_tx_k;
+wire        ilabidir_tx_send_k_word;
+wire        ilabidir_tx_send_data_word;
+wire [15:0] ilabidir_tx_train_cnt;
+wire [15:0] ilabidir_tx_interval_cnt;
+wire [4:0]  ilabidir_tx_fifo_wrusewd;
+wire        ilabidir_tx_fifo_afull;
+wire        ilabidir_tx_fifo_full;
 
-wire        ila8b10b_rx_fifo_rden;
-wire [87:0] ila8b10b_rx_data;
-wire [63:0] ila8b10b_rx_code;
-wire [7:0]  ila8b10b_rx_k;
-wire [7:0]  ila8b10b_rx_disp_err;
-wire [7:0]  ila8b10b_rx_dec_err;
-wire [4:0]  ila8b10b_rx_fifo_rdusewd;
-wire        ila8b10b_rx_fifo_aempty;
-wire        ila8b10b_rx_fifo_empty;
-wire        ila8b10b_rx_valid;
+wire        ilabidir_rx_fifo_rden;
+wire [87:0] ilabidir_rx_data;
+wire [63:0] ilabidir_rx_code;
+wire [7:0]  ilabidir_rx_k;
+wire [7:0]  ilabidir_rx_disp_err;
+wire [7:0]  ilabidir_rx_dec_err;
+wire [4:0]  ilabidir_rx_fifo_rdusewd;
+wire        ilabidir_rx_fifo_aempty;
+wire        ilabidir_rx_fifo_empty;
+wire        ilabidir_rx_valid;
 
-wire        ila8b10b_rx_8b10b_no_err;
-wire        ila8b10b_rx_all_k285;
-wire        ila8b10b_rx_is_data_word;
-wire        ila8b10b_rx_is_valid_k_word;
-wire        ila8b10b_rx_unexpected_word;
-wire        ila8b10b_tx_prbs_en;
-wire        ila8b10b_rx_prbs_en;
-wire [63:0] ila8b10b_prbs_tx_data;
-wire [63:0] ila8b10b_prbs_rx_data;
-wire        ila8b10b_prbs_lock;
-wire        ila8b10b_link_pass_now;
-wire        ila8b10b_link_pass_seen;
+wire        ilabidir_rx_8b10b_no_err;
+wire        ilabidir_rx_all_k285;
+wire        ilabidir_rx_is_data_word;
+wire        ilabidir_rx_is_valid_k_word;
+wire        ilabidir_rx_unexpected_word;
 
-wire [31:0] ila8b10b_tx_wr_cnt;
-wire [31:0] ila8b10b_tx_data_cnt;
-wire [31:0] ila8b10b_tx_k_cnt;
-wire [31:0] ila8b10b_rx_read_cnt;
-wire [31:0] ila8b10b_rx_valid_cnt;
-wire [31:0] ila8b10b_rx_data_cnt;
-wire [31:0] ila8b10b_rx_k285_cnt;
-wire [31:0] ila8b10b_rx_err_cnt;
-wire [31:0] ila8b10b_rx_unexpected_cnt;
+wire        ilabidir_tx_prbs_en;
+wire        ilabidir_rx_prbs_en;
+wire [63:0] ilabidir_prbs_tx_data;
+wire [63:0] ilabidir_prbs_rx_data;
+wire        ilabidir_prbs_lock;
+wire        ilabidir_link_pass_now;
+wire        ilabidir_link_pass_seen;
 
-wire [63:0] ila8b10b_rx_last_code;
-wire [7:0]  ila8b10b_rx_last_k;
-wire [7:0]  ila8b10b_rx_last_disp_err;
-wire [7:0]  ila8b10b_rx_last_dec_err;
+wire [31:0] ilabidir_tx_wr_cnt;
+wire [31:0] ilabidir_tx_data_cnt;
+wire [31:0] ilabidir_tx_k_cnt;
+wire [31:0] ilabidir_rx_read_cnt;
+wire [31:0] ilabidir_rx_valid_cnt;
+wire [31:0] ilabidir_rx_data_cnt;
+wire [31:0] ilabidir_rx_k285_cnt;
+wire [31:0] ilabidir_rx_err_cnt;
+wire [31:0] ilabidir_rx_unexpected_cnt;
 
-wire        ila8b10b_prbs_lock_seen;
-wire        ila8b10b_rx_valid_seen;
-wire        ila8b10b_cdr_lock_seen;
-wire        ila8b10b_ready_seen;
-wire        ila8b10b_signal_detect_seen;
-wire        ila8b10b_k_lock_seen;
-wire        ila8b10b_word_align_seen;
-wire        ila8b10b_disp_err_seen;
-wire        ila8b10b_dec_err_seen;
-wire        ila8b10b_rx_unexpected_seen;
-wire        ila8b10b_tx_afull_seen;
-wire        ila8b10b_tx_full_seen;
-wire        ila8b10b_rx_empty_seen;
-wire        ila8b10b_rx_aempty_seen;
-wire        ila8b10b_rx_activity_toggle;
+wire [63:0] ilabidir_rx_last_code;
+wire [7:0]  ilabidir_rx_last_k;
+wire [7:0]  ilabidir_rx_last_disp_err;
+wire [7:0]  ilabidir_rx_last_dec_err;
 
-assign ila8b10b_top_version        = TOP_VERSION;
-assign ila8b10b_clk_heartbeat      = hb_cnt[25];
+wire        ilabidir_prbs_lock_seen;
+wire        ilabidir_rx_valid_seen;
+wire        ilabidir_cdr_lock_seen;
+wire        ilabidir_ready_seen;
+wire        ilabidir_signal_detect_seen;
+wire        ilabidir_k_lock_seen;
+wire        ilabidir_word_align_seen;
+wire        ilabidir_disp_err_seen;
+wire        ilabidir_dec_err_seen;
+wire        ilabidir_rx_unexpected_seen;
+wire        ilabidir_tx_afull_seen;
+wire        ilabidir_tx_full_seen;
+wire        ilabidir_rx_empty_seen;
+wire        ilabidir_rx_aempty_seen;
+wire        ilabidir_rx_activity_toggle;
 
-assign ila8b10b_pll_lock           = cphy_pll_lock;
-assign ila8b10b_ready              = cphy_ready;
-assign ila8b10b_signal_detect      = cphy_signal_detect;
-assign ila8b10b_rx_cdr_lock        = cphy_rx_cdr_lock;
-assign ila8b10b_k_lock             = cphy_k_lock;
-assign ila8b10b_word_align_link    = cphy_word_align_link;
+assign ilabidir_top_version        = TOP_VERSION;
+assign ilabidir_local_board_id     = LOCAL_BOARD_ID;
+assign ilabidir_clk_heartbeat      = hb_cnt[25];
 
-assign ila8b10b_tx_link_rstn       = tx_link_rstn;
-assign ila8b10b_rx_link_rstn       = rx_link_rstn;
+assign ilabidir_pll_lock           = cphy_pll_lock;
+assign ilabidir_ready              = cphy_ready;
+assign ilabidir_signal_detect      = cphy_signal_detect;
+assign ilabidir_rx_cdr_lock        = cphy_rx_cdr_lock;
+assign ilabidir_k_lock             = cphy_k_lock;
+assign ilabidir_word_align_link    = cphy_word_align_link;
 
-assign ila8b10b_tx_fifo_wren       = cphy_tx_fifo_wren_i;
-assign ila8b10b_tx_data            = cphy_tx_data_i;
-assign ila8b10b_tx_code            = tx_code;
-assign ila8b10b_tx_k               = tx_k;
-assign ila8b10b_tx_send_k_word     = tx_send_k_word;
-assign ila8b10b_tx_send_data_word  = tx_send_data_word;
-assign ila8b10b_tx_train_cnt       = tx_train_cnt;
-assign ila8b10b_tx_interval_cnt    = tx_interval_cnt;
-assign ila8b10b_tx_fifo_wrusewd    = cphy_tx_fifo_wrusewd;
-assign ila8b10b_tx_fifo_afull      = cphy_tx_fifo_afull;
-assign ila8b10b_tx_fifo_full       = cphy_tx_fifo_full;
+assign ilabidir_tx_link_rstn       = tx_link_rstn;
+assign ilabidir_rx_link_rstn       = rx_link_rstn;
 
-assign ila8b10b_rx_fifo_rden       = cphy_rx_fifo_rden_i;
-assign ila8b10b_rx_data            = cphy_rx_data;
-assign ila8b10b_rx_code            = rx_code;
-assign ila8b10b_rx_k               = rx_k;
-assign ila8b10b_rx_disp_err        = rx_disp_err;
-assign ila8b10b_rx_dec_err         = rx_dec_err;
-assign ila8b10b_rx_fifo_rdusewd    = cphy_rx_fifo_rdusewd;
-assign ila8b10b_rx_fifo_aempty     = cphy_rx_fifo_aempty;
-assign ila8b10b_rx_fifo_empty      = cphy_rx_fifo_empty;
-assign ila8b10b_rx_valid           = cphy_rx_valid;
+assign ilabidir_tx_fifo_wren       = cphy_tx_fifo_wren_i;
+assign ilabidir_tx_data            = cphy_tx_data_i;
+assign ilabidir_tx_code            = tx_code;
+assign ilabidir_tx_k               = tx_k;
+assign ilabidir_tx_send_k_word     = tx_send_k_word;
+assign ilabidir_tx_send_data_word  = tx_send_data_word;
+assign ilabidir_tx_train_cnt       = tx_train_cnt;
+assign ilabidir_tx_interval_cnt    = tx_interval_cnt;
+assign ilabidir_tx_fifo_wrusewd    = cphy_tx_fifo_wrusewd;
+assign ilabidir_tx_fifo_afull      = cphy_tx_fifo_afull;
+assign ilabidir_tx_fifo_full       = cphy_tx_fifo_full;
 
-assign ila8b10b_rx_8b10b_no_err    = rx_8b10b_no_err;
-assign ila8b10b_rx_all_k285        = rx_all_k285;
-assign ila8b10b_rx_is_data_word    = rx_is_data_word;
-assign ila8b10b_rx_is_valid_k_word = rx_is_valid_k_word;
-assign ila8b10b_rx_unexpected_word = rx_unexpected_word;
-assign ila8b10b_tx_prbs_en         = tx_prbs_en;
-assign ila8b10b_rx_prbs_en         = rx_prbs_en;
-assign ila8b10b_prbs_tx_data       = prbs_tx_data;
-assign ila8b10b_prbs_rx_data       = prbs_rx_data;
-assign ila8b10b_prbs_lock          = prbs_lock;
-assign ila8b10b_link_pass_now      = link_pass_now;
-assign ila8b10b_link_pass_seen     = link_pass_seen;
+assign ilabidir_rx_fifo_rden       = cphy_rx_fifo_rden_i;
+assign ilabidir_rx_data            = cphy_rx_data;
+assign ilabidir_rx_code            = rx_code;
+assign ilabidir_rx_k               = rx_k;
+assign ilabidir_rx_disp_err        = rx_disp_err;
+assign ilabidir_rx_dec_err         = rx_dec_err;
+assign ilabidir_rx_fifo_rdusewd    = cphy_rx_fifo_rdusewd;
+assign ilabidir_rx_fifo_aempty     = cphy_rx_fifo_aempty;
+assign ilabidir_rx_fifo_empty      = cphy_rx_fifo_empty;
+assign ilabidir_rx_valid           = cphy_rx_valid;
 
-assign ila8b10b_tx_wr_cnt          = tx_wr_cnt;
-assign ila8b10b_tx_data_cnt        = tx_data_cnt;
-assign ila8b10b_tx_k_cnt           = tx_k_cnt;
-assign ila8b10b_rx_read_cnt        = rx_read_cnt;
-assign ila8b10b_rx_valid_cnt       = rx_valid_cnt;
-assign ila8b10b_rx_data_cnt        = rx_data_cnt;
-assign ila8b10b_rx_k285_cnt        = rx_k285_cnt;
-assign ila8b10b_rx_err_cnt         = rx_err_cnt;
-assign ila8b10b_rx_unexpected_cnt  = rx_unexpected_cnt;
+assign ilabidir_rx_8b10b_no_err    = rx_8b10b_no_err;
+assign ilabidir_rx_all_k285        = rx_all_k285;
+assign ilabidir_rx_is_data_word    = rx_is_data_word;
+assign ilabidir_rx_is_valid_k_word = rx_is_valid_k_word;
+assign ilabidir_rx_unexpected_word = rx_unexpected_word;
 
-assign ila8b10b_rx_last_code       = rx_last_code;
-assign ila8b10b_rx_last_k          = rx_last_k;
-assign ila8b10b_rx_last_disp_err   = rx_last_disp_err;
-assign ila8b10b_rx_last_dec_err    = rx_last_dec_err;
+assign ilabidir_tx_prbs_en         = tx_prbs_en;
+assign ilabidir_rx_prbs_en         = rx_prbs_en;
+assign ilabidir_prbs_tx_data       = prbs_tx_data;
+assign ilabidir_prbs_rx_data       = prbs_rx_data;
+assign ilabidir_prbs_lock          = prbs_lock;
+assign ilabidir_link_pass_now      = link_pass_now;
+assign ilabidir_link_pass_seen     = link_pass_seen;
 
-assign ila8b10b_prbs_lock_seen     = prbs_lock_seen;
-assign ila8b10b_rx_valid_seen      = rx_valid_seen;
-assign ila8b10b_cdr_lock_seen      = cdr_lock_seen;
-assign ila8b10b_ready_seen         = ready_seen;
-assign ila8b10b_signal_detect_seen = signal_detect_seen;
-assign ila8b10b_k_lock_seen        = k_lock_seen;
-assign ila8b10b_word_align_seen    = word_align_seen;
-assign ila8b10b_disp_err_seen      = disp_err_seen;
-assign ila8b10b_dec_err_seen       = dec_err_seen;
-assign ila8b10b_rx_unexpected_seen = rx_unexpected_seen;
-assign ila8b10b_tx_afull_seen      = tx_afull_seen;
-assign ila8b10b_tx_full_seen       = tx_full_seen;
-assign ila8b10b_rx_empty_seen      = rx_empty_seen;
-assign ila8b10b_rx_aempty_seen     = rx_aempty_seen;
-assign ila8b10b_rx_activity_toggle = rx_activity_toggle;
+assign ilabidir_tx_wr_cnt          = tx_wr_cnt;
+assign ilabidir_tx_data_cnt        = tx_data_cnt;
+assign ilabidir_tx_k_cnt           = tx_k_cnt;
+assign ilabidir_rx_read_cnt        = rx_read_cnt;
+assign ilabidir_rx_valid_cnt       = rx_valid_cnt;
+assign ilabidir_rx_data_cnt        = rx_data_cnt;
+assign ilabidir_rx_k285_cnt        = rx_k285_cnt;
+assign ilabidir_rx_err_cnt         = rx_err_cnt;
+assign ilabidir_rx_unexpected_cnt  = rx_unexpected_cnt;
+
+assign ilabidir_rx_last_code       = rx_last_code;
+assign ilabidir_rx_last_k          = rx_last_k;
+assign ilabidir_rx_last_disp_err   = rx_last_disp_err;
+assign ilabidir_rx_last_dec_err    = rx_last_dec_err;
+
+assign ilabidir_prbs_lock_seen     = prbs_lock_seen;
+assign ilabidir_rx_valid_seen      = rx_valid_seen;
+assign ilabidir_cdr_lock_seen      = cdr_lock_seen;
+assign ilabidir_ready_seen         = ready_seen;
+assign ilabidir_signal_detect_seen = signal_detect_seen;
+assign ilabidir_k_lock_seen        = k_lock_seen;
+assign ilabidir_word_align_seen    = word_align_seen;
+assign ilabidir_disp_err_seen      = disp_err_seen;
+assign ilabidir_dec_err_seen       = dec_err_seen;
+assign ilabidir_rx_unexpected_seen = rx_unexpected_seen;
+assign ilabidir_tx_afull_seen      = tx_afull_seen;
+assign ilabidir_tx_full_seen       = tx_full_seen;
+assign ilabidir_rx_empty_seen      = rx_empty_seen;
+assign ilabidir_rx_aempty_seen     = rx_aempty_seen;
+assign ilabidir_rx_activity_toggle = rx_activity_toggle;
 
 endmodule
